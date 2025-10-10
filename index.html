@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Sistema de Monitoramento de Museus</title>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <div class="logo-icon">M</div>
+                <h1>Monitoramento de Museus</h1>
+            </div>
+            
+            <nav>
+                <ul>
+                    <li><a href="#dashboard" class="active nav-link" data-tab="dashboard">Dashboard</a></li>
+                    <li><a href="#historico" class="nav-link" data-tab="historico">Histórico</a></li>
+                    <li><a href="#configuracoes" class="nav-link" data-tab="configuracoes">Configurações</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="container">
+        <div class="status-alert hidden" id="fire-alert">
+            <div class="alert-content">
+                <div class="alert-icon">🔥</div>
+                <div>
+                    <h3>Alerta de Incêndio!</h3>
+                    <p>Temperatura crítica detectada. Risco de incêndio iminente.</p>
+                </div>
+            </div>
+            <button class="dismiss-alert">Silenciar</button>
+        </div>
+        
+        <div class="status-alert hidden" id="connection-alert">
+            <div class="alert-content">
+                <div class="alert-icon">⚠️</div>
+                <div>
+                    <h3>Problema de Conexão</h3>
+                    <p>Falha na comunicação com os sensores. Tentando reconectar...</p>
+                </div>
+            </div>
+        </div>
+        
+        <section id="dashboard" class="tab-content active">
+            <h2>Monitoramento em Tempo Real</h2>
+            <p class="last-update">Última atualização: <span id="update-time">--:--:--</span></p>
+            
+            <div class="dashboard-grid">
+                <div class="card sensor-card">
+                    <h3>Temperatura</h3>
+                    <div class="sensor-value sensor-temperature" id="temperature-value">-- °C</div>
+                    <div class="sensor-status" id="temperature-status">Carregando...</div>
+                </div>
+                
+                <div class="card sensor-card">
+                    <h3>Umidade</h3>
+                    <div class="sensor-value sensor-humidity" id="humidity-value">-- %</div>
+                    <div class="sensor-status" id="humidity-status">Carregando...</div>
+                </div>
+                
+                <div class="card control-card">
+                    <h3>Controles</h3>
+                    <div class="control-toggle">
+                        <span>Modo Automático</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-mode" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="alarm-control">
+                        <span>Alarme Sonoro</span>
+                        <div>
+                            <span class="alarm-status alarm-on" id="alarm-status">ATIVADO</span>
+                            <button class="btn btn-secondary" id="toggle-alarm">Desativar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Status das Condições</h3>
+                <p id="conditions-status">Monitorando condições do ambiente...</p>
+            </div>
+        </section>
+        
+        <section id="historico" class="tab-content">
+            <h2>Histórico de Dados</h2>
+            
+            <div class="history-controls">
+                <div class="date-filter">
+                    <button class="filter-btn active">Hoje</button>
+                    <button class="filter-btn">Ontem</button>
+                    <button class="filter-btn">Últimos 7 dias</button>
+                </div>
+                
+                <div>
+                    <input type="date" id="history-date">
+                </div>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Temperatura</th>
+                        <th>Umidade</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="history-data">
+                    <tr>
+                        <td colspan="4" style="text-align: center;">Carregando dados históricos...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <section id="configuracoes" class="tab-content">
+            <h2>Configurações do Sistema</h2>
+            
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="temp-threshold">Limite de Temperatura para Alerta (°C)</label>
+                    <input type="number" id="temp-threshold" value="57" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="humidity-min">Umidade Mínima Ideal (%)</label>
+                    <input type="number" id="humidity-min" value="40" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="humidity-max">Umidade Máxima Ideal (%)</label>
+                    <input type="number" id="humidity-max" value="60" min="0" max="100">
+                </div>
+                
+                <div class="form-group">
+                    <label for="update-interval">Intervalo de Atualização (minutos)</label>
+                    <input type="number" id="update-interval" value="2" min="1" max="60">
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn btn-secondary">Cancelar</button>
+                    <button class="btn btn-primary">Salvar Configurações</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <div class="container footer-content">
+            <div class="system-status">
+                <div class="status-indicator status-online"></div>
+                <span>Sistema Online - Conectado via MQTT</span>
+            </div>
+            
+            <div>
+                <span>Grupo 03 - Dispositivos de Monitoramento de Museus</span>
+            </div>
+        </div>
+    </footer>
+
+<script src="main.js"></script>
+</body>
+</html>
