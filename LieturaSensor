@@ -1,0 +1,139 @@
+#include "DHT.h"
+
+#define DHTPIN 14
+#define DHTTYPE DHT11
+#define BUZZER_PIN 33
+#define LED_PIN 25
+#define LED_PIN_AZUL 27
+
+
+DHT dht(DHTPIN, DHTTYPE);
+
+int status_buzina = 0;
+
+// Variáveis para armazenar tempo de execução
+unsigned long tempoExecucaoLerSensor = 0;
+unsigned long tempoExecucaoLerTemperatura = 0;
+unsigned long tempoExecucaoLerUmidade = 0;
+unsigned long tempoExecucaoLigarAlarme = 0;
+unsigned long tempoExecucaoDesligarAlarme = 0;
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_PIN_AZUL, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_PIN_AZUL, LOW);
+  noTone(BUZZER_PIN);
+
+  // Criação da task
+  xTaskCreate(
+    lerSensor,
+    "LeituraSensor",
+    4096,
+    NULL,
+    1,
+    NULL
+  );
+}
+
+void loop() {
+  // Loop principal vazio
+}
+
+// ===== TASK =====
+void lerSensor(void *pvParameters) {
+  while (1) {
+    unsigned long inicioSensor = micros();
+    
+    unsigned long inicioTemp = micros();
+    lerTemperatura();
+    tempoExecucaoLerTemperatura = micros() - inicioTemp;
+
+    unsigned long inicioUmid = micros();
+    lerUmidade();
+    tempoExecucaoLerUmidade = micros() - inicioUmid;
+
+    tempoExecucaoLerSensor = micros() - inicioSensor;
+
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+  }
+}
+
+// ===== FUNÇÕES DE LEITURA =====
+void lerTemperatura() {
+  float temperatura = dht.readTemperature();
+  if (isnan(temperatura)) {
+    Serial.println("Erro ao ler a temperatura.");
+    return;
+  }
+
+  Serial.print("Temperatura: ");
+  Serial.print(temperatura);
+  Serial.println(" °C");
+
+  if (temperatura >= 18 && temperatura < 20) {
+    Serial.println("Temperatura boa ");
+    unsigned long inicio = micros();
+    desligarAlarme();
+    tempoExecucaoDesligarAlarme = micros() - inicio;
+  } 
+  else if ((temperatura < 18) || (temperatura >= 20 && temperatura <= 24)) {
+    Serial.println("Temperatura fora do ideal ");
+    unsigned long inicio = micros();
+    desligarAlarme();
+    tempoExecucaoDesligarAlarme = micros() - inicio;
+  } 
+  else if (temperatura > 24 && temperatura < 57) {
+    Serial.println("Temperatura crítica!! ");
+    unsigned long inicio = micros();
+    desligarAlarme();
+    tempoExecucaoDesligarAlarme = micros() - inicio;
+  } 
+  else if (temperatura >= 57) {
+    Serial.println(" ALERTA INCÊNDIO!! ");
+    unsigned long inicio = micros();
+    ligarAlarme();
+    tempoExecucaoLigarAlarme = micros() - inicio;
+  }
+}
+
+void lerUmidade() {
+  float umidade = dht.readHumidity();
+  if (isnan(umidade)) {
+    Serial.println("Erro ao ler a umidade.");
+    return;
+  }
+
+  Serial.print("Umidade: ");
+  Serial.print(umidade);
+  Serial.println(" %");
+
+  if (umidade >= 45 && umidade < 55) {
+    Serial.println("Umidade boa ");
+    digitalWrite(LED_PIN_AZUL, LOW);
+  } else {
+    Serial.println("Umidade fora do padrão ");
+     digitalWrite(LED_PIN_AZUL, HIGH);
+
+  }
+}
+
+// ===== CONTROLE DE ALARME =====
+void ligarAlarme() {
+  if (status_buzina == 0) {
+    digitalWrite(LED_PIN, HIGH);
+    tone(BUZZER_PIN, 2000);
+    status_buzina = 1;
+  }
+}
+
+void desligarAlarme() {
+  if (status_buzina == 1) {
+    noTone(BUZZER_PIN);
+    digitalWrite(LED_PIN, LOW);
+    status_buzina = 0;
+  }
+}
