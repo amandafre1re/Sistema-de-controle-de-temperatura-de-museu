@@ -1,0 +1,186 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include "DHT.h"
+
+#define DHTPIN 14
+#define DHTTYPE DHT11
+#define BUZZER_PIN 33
+#define LED_PIN 25
+#define LED_PIN_AZUL 27
+
+// Configuração WiFi
+const char* ssid = "tttt";    // Coloque o nome da sua rede
+const char* password = "12345678";          // Coloque a senha (ou deixe vazio se não tiver)
+
+DHT dht(DHTPIN, DHTTYPE);
+WebServer server(80);
+
+float temperaturaAtual = 0.0;
+float umidadeAtual = 0.0;
+int status_buzina = 0;
+
+// ===== Variáveis de tempo =====
+unsigned long tempoExecucaoLerSensor = 0;
+unsigned long tempoExecucaoLerTemperatura = 0;
+unsigned long tempoExecucaoLerUmidade = 0;
+unsigned long tempoExecucaoLigarAlarme = 0;
+unsigned long tempoExecucaoDesligarAlarme = 0;
+
+// ===== Prototipação =====
+void lerSensor(void *pvParameters);
+void lerTemperatura();
+void lerUmidade();
+void ligarAlarme();
+void desligarAlarme();
+void handleRoot();
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_PIN_AZUL, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_PIN_AZUL, LOW);
+  noTone(BUZZER_PIN);
+
+  // ==== Conexão Wi-Fi ====
+  WiFi.begin(ssid, password);
+  Serial.print("Conectando ao WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("Conectado! IP: ");
+  Serial.println(WiFi.localIP());
+
+  // ==== Servidor Web ====
+  server.on("/", handleRoot);
+  server.begin();
+  Serial.println("Servidor iniciado!");
+
+  // ==== Task de leitura do sensor ====
+  xTaskCreate(lerSensor, "LeituraSensor", 4096, NULL, 1, NULL);
+}
+
+void loop() {
+  server.handleClient();
+}
+
+// ===== TASK =====
+void lerSensor(void *pvParameters) {
+  while (1) {
+    unsigned long inicioSensor = micros();
+
+    unsigned long inicioTemp = micros();
+    lerTemperatura();
+    tempoExecucaoLerTemperatura = micros() - inicioTemp;
+
+    unsigned long inicioUmid = micros();
+    lerUmidade();
+    tempoExecucaoLerUmidade = micros() - inicioUmid;
+
+    tempoExecucaoLerSensor = micros() - inicioSensor;
+
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+  }
+}
+
+// ===== FUNÇÕES =====
+void lerTemperatura() {
+  float temperatura = dht.readTemperature();
+  if (isnan(temperatura)) {
+    Serial.println("Erro ao ler a temperatura.");
+    return;
+  }
+  temperaturaAtual = temperatura;
+
+  Serial.print("Temperatura: ");
+  Serial.print(temperaturaAtual);
+  Serial.println(" °C");
+
+  if (temperatura >= 18 && temperatura < 20) {
+    Serial.println("Temperatura boa");
+    desligarAlarme();
+  } 
+  else if ((temperatura < 18) || (temperatura >= 20 && temperatura <= 24)) {
+    Serial.println("Temperatura fora do ideal");
+    desligarAlarme();
+  } 
+  else if (temperatura > 24 && temperatura < 57) {
+    Serial.println("Temperatura crítica!!");
+    desligarAlarme();
+  } 
+  else if (temperatura >= 57) {
+    Serial.println("🚨 ALERTA INCÊNDIO!! 🚨");
+    ligarAlarme();
+  }
+}
+
+void lerUmidade() {
+  float umidade = dht.readHumidity();
+  if (isnan(umidade)) {
+    Serial.println("Erro ao ler a umidade.");
+    return;
+  }
+  umidadeAtual = umidade;
+
+  Serial.print("Umidade: ");
+  Serial.print(umidadeAtual);
+  Serial.println(" %");
+
+  if (umidade >= 45 && umidade < 55) {
+    Serial.println("Umidade boa");
+    digitalWrite(LED_PIN_AZUL, LOW);
+  } else {
+    Serial.println("Umidade fora do padrão");
+    digitalWrite(LED_PIN_AZUL, HIGH);
+  }
+}
+
+// ===== CONTROLE DE ALARME =====
+void ligarAlarme() {
+  if (status_buzina == 0) {
+    digitalWrite(LED_PIN, HIGH);
+    tone(BUZZER_PIN, 2000);
+    status_buzina = 1;
+  }
+}
+
+void desligarAlarme() {
+  if (status_buzina == 1) {
+    noTone(BUZZER_PIN);
+    digitalWrite(LED_PIN, LOW);
+    status_buzina = 0;
+  }
+}
+
+// ===== SERVIDOR WEB =====
+void handleRoot() {
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
+  html += "<meta http-equiv='refresh' content='5'>";
+  html += "<title>Monitor de Temperatura e Umidade</title>";
+  html += "<style>";
+  html += "body { font-family: Arial; text-align: center; background: #f2f2f2; padding-top: 50px; }";
+  html += ".dashboard { background: white; display: inline-block; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px #ccc; }";
+  html += ".valor { font-size: 22px; margin: 20px 0; }";
+  html += ".alerta { color: red; font-weight: bold; }";
+  html += "</style></head><body>";
+  html += "<div class='dashboard'>";
+  html += "<h1>Monitor de Temperatura e Umidade</h1>";
+  html += "<p class='valor'>🌡️ Temperatura: " + String(temperaturaAtual, 1) + " °C</p>";
+  html += "<p class='valor'>💧 Umidade: " + String(umidadeAtual, 1) + " %</p>";
+
+  if (status_buzina == 1)
+    html += "<p class='alerta'>🚨 ALARME ATIVO (Risco de incêndio)</p>";
+  else
+    html += "<p style='color:green;'>✅ Sistema estável</p>";
+
+  html += "<p style='font-size:14px;color:gray'>Atualiza automaticamente a cada 5 segundos</p>";
+  html += "</div></body></html>";
+
+  server.send(200, "text/html", html);
+}
